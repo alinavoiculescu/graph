@@ -5,7 +5,8 @@ ifstream fin("biconex.in");
 ofstream fout("biconex.out");
 
 const int INF = 0x3f3f3f3f;
-const int MAX = 5000; //500000
+const int MAX = 5000; //500000 eulerian cycle
+                      //100000 apm, tree diameter
 
 void CountingSort(vector<int>&);
 
@@ -15,20 +16,20 @@ class Graph
     int numberOfNodes;
     int numberOfEdges;
     bool directed;
+    bool fromOne;  //if first node is 1 => true
+
     vector<vector<int>> adjacencyList;
     vector<pair<int, int>> adjacencyListWeightedGraph[MAX];
     vector<vector<int>> adjacencyMatrixWeightedGraph;
     vector<pair<int,int>> adjacencyListWithEdgesNumber[MAX];
 
-    void DFS(int, bool[]);
+    void functionBiconnectedComponents(int, int, int[], int[], stack<int>&, bool[], vector<vector<int>>&);
 
-    void _BiconnectedComponents(int, int, int[], int[], stack<int>&, bool[], vector<vector<int>>&);
+    void functionStronglyConnectedComponents(int, int&, int[], int[], stack<int>&, bool[], bool[], vector<vector<int>>&);
 
-    void _StronglyConnectedComponents(int, int&, int[], int[], stack<int>&, bool[], bool[], vector<vector<int>>&);
+    void functionTopologicalSort(int, bool[], vector<int>&);
 
-    void _TopologicalSort(int, bool[], vector<int>&);
-
-    void _CriticalConnections(int, bool[], int[], int[], int[], vector<vector<int>>&);
+    void functionCriticalConnections(int, bool[], int[], int[], int[], vector<vector<int>>&);
 
     int FindRoot(int, int[]);
 
@@ -36,21 +37,34 @@ class Graph
 
     bool MaxFlowBFS(int, int, vector<vector<int>>, int[]);
 
+    bool MaximumBipartiteMatchingBFS(vector<vector<int>>&, vector<int>&, vector<int>&, vector<int>&);
+
+    bool MaximumBipartiteMatchingDFS(int, vector<vector<int>>&, vector<int>&, vector<int>&, vector<int>&);
+
 
 ///PUBLIC
     public:
         Graph();
-        Graph(int, int, bool);
-        Graph(int, bool);
+        Graph(int, int, bool, bool);
+        Graph(int, bool, bool);
+
+        ~Graph() { }
+
         void Build(istream&);
         void BuildFromVector(vector<vector<int>>);
         void BuildWeightedGraph(istream&);
         void BuildAdjacencyMatrixWeightedGraph(istream&);
         void BuildGraphWithEdgesNumber(istream&);
+        void BuildTransposeWeightedGraph(istream&);
+
         int GetNumberOfNodes();
         int GetNumberOfEdges();
+        bool IsDirected();
+        bool IsFromOne();
 
         void BFS(int, int[]);
+
+        void DFS(int, bool[]);
 
         int NumberOfConnectedComponents();
 
@@ -66,15 +80,15 @@ class Graph
         vector<vector<int>> CriticalConnections();
 
         //Prim's Minimum Spanning Tree
-        void MinimumSpanningTree(int, ostream&);
+        vector<int> MinimumSpanningTree(int, int&, int&);
 
-        void Dijkstra(int, ostream&);
+        vector<int> Dijkstra(int);
 
-        void BellmanFord(int, ostream&);
+        vector<int> BellmanFord(int, bool&);
 
         void DisjointSetForests(istream&, ostream&);
 
-        //Ford-Flurkenson && Edmonds-Karp
+        //Ford-Fulkerson && Edmonds-Karp
         int MaxFlow(int, int);
 
         int TreeDiameter();
@@ -82,6 +96,11 @@ class Graph
         vector<vector<int>> RoyFloyd();
 
         vector<int> EulerianPath(int);
+
+        int HamiltonianCycleCost();
+
+        //Hopcroft-Karp
+        vector<int> MaximumBipartiteMatching(int, int, int, vector<vector<int>>);
 };
 
 //LeetCode Critical Connections Problem
@@ -89,7 +108,7 @@ class Solution {
 public:
     vector<vector<int>> CriticalConnections(int n, vector<vector<int>>& connections)
     {
-        Graph G(n, connections.size(), 0);
+        Graph G(n, connections.size(), 0, 0);
         G.BuildFromVector(connections);
 
         return G.CriticalConnections();
@@ -98,7 +117,52 @@ public:
 
 int main()
 {
+/*  ----------------------------MaximumMatchingBipartiteGraph----------------------------
+    int numberOfNodesLeft, numberOfNodesRight, numberOfEdges;
+    vector<vector<int>> adjacencyListBipartiteGraph;
+    vector<int> left;
 
+    fin >> numberOfNodesLeft >> numberOfNodesRight >> numberOfEdges;
+
+    for (int i = 0; i < numberOfNodesLeft + 1; i++)
+        adjacencyListBipartiteGraph.push_back( {} );
+
+    for (int i = 0; i < numberOfEdges; i++)
+    {
+        int node1, node2;
+        fin >> node1 >> node2;
+
+        adjacencyListBipartiteGraph[node1].push_back(node2);
+    }
+
+    Graph G(numberOfNodesLeft + numberOfNodesRight, numberOfEdges, 0, 1);
+
+    left = G.MaximumBipartiteMatching(numberOfNodesLeft, numberOfNodesRight, numberOfEdges, adjacencyListBipartiteGraph);
+
+    fout << left[0] << "\n";
+    for (int i = 1; i < numberOfNodesLeft + 1; i++)
+    {
+        if (left[i])
+            fout << i << " " << left[i] << "\n";
+    }
+    ----------------------------MaximumMatchingBipartiteGraph----------------------------*/
+
+
+
+/*  ----------------------------HamiltonianCycle----------------------------
+    int numberOfNodes, numberOfEdges, minimumCost;
+    fin >> numberOfNodes >> numberOfEdges;
+
+    Graph G(numberOfNodes, numberOfEdges, 1, 0);
+    G.BuildTransposeWeightedGraph(fin);
+
+    minimumCost = G.HamiltonianCycleCost();
+
+    if (minimumCost != -1)
+        fout << minimumCost;
+    else
+        fout << "Nu exista solutie";
+    ----------------------------HamiltonianCycle----------------------------*/
 
 
 
@@ -108,7 +172,7 @@ int main()
 
         fin >> numberOfNodes >> numberOfEdges;
 
-        Graph G(numberOfNodes, numberOfEdges, 0);
+        Graph G(numberOfNodes, numberOfEdges, 0, 1);
         G.BuildGraphWithEdgesNumber(fin);
 
         path = G.EulerianPath(startNode);
@@ -123,7 +187,7 @@ int main()
     int numberOfNodes;
     fin >> numberOfNodes;
 
-    Graph G(numberOfNodes, 1);
+    Graph G(numberOfNodes, 1, 1);
     G.BuildAdjacencyMatrixWeightedGraph(fin);
 
     vector<vector<int>> distance = G.RoyFloyd();
@@ -140,29 +204,33 @@ int main()
 
 
 /*  ----------------------------TreeDiameter----------------------------
+
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes;
     numberOfEdges = numberOfNodes - 1;
 
-    Graph G(numberOfNodes, numberOfEdges, 0);
+    Graph G(numberOfNodes, numberOfEdges, 0, 1);
     G.Build(fin);
 
     fout << G.TreeDiameter();
+
     ----------------------------TreeDiameter----------------------------*/
 
 
 
 /*  ----------------------------MaxFlow----------------------------
+
     int numberOfNodes, numberOfEdges, source, destination;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.BuildWeightedGraph(fin);
 
     source = 0;
     destination = G.GetNumberOfNodes() - 1;
 
     fout << G.MaxFlow(source, destination);
+
     ----------------------------MaxFlow----------------------------*/
 
 
@@ -172,7 +240,7 @@ int main()
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 0);
+    Graph G(numberOfNodes, numberOfEdges, 0, 1);
 
     G.DisjointSetForests(fin, fout);
 
@@ -183,13 +251,28 @@ int main()
 /*  ----------------------------BellmanFord----------------------------
 
     int numberOfNodes, numberOfEdges, startNode;
+    bool negativeCycle = 0;
+    vector<int> key(numberOfNodes);
+
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.BuildWeightedGraph(fin);
 
     startNode = 0;
-    G.BellmanFord(startNode, fout);
+    key = G.BellmanFord(startNode, negativeCycle);
+
+    if (negativeCycle)
+        fout << "Ciclu negativ!";
+    else
+        for (int i = 0; i < numberOfNodes; i++)
+            if (i != startNode)
+            {
+                if (key[i] == INF)
+                    key[i] = 0;
+
+                fout << key[i] << " ";
+            }
 
     ----------------------------BellmanFord----------------------------*/
 
@@ -198,13 +281,25 @@ int main()
 /*  ----------------------------Dijkstra----------------------------
 
     int numberOfNodes, numberOfEdges, startNode;
+    vector<int> key(numberOfNodes);
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.BuildWeightedGraph(fin);
 
     startNode = 0;
-    G.Dijkstra(startNode, fout);
+    key = G.Dijkstra(startNode);
+
+    for (int i = 0; i < numberOfNodes; i++)
+    {
+        if (i != startNode)
+        {
+            if (key[i] == INF)
+                key[i] = 0;
+
+            fout << key[i] << " ";
+        }
+    }
 
     ----------------------------Dijkstra----------------------------*/
 
@@ -212,14 +307,25 @@ int main()
 
 /*  ----------------------------APM----------------------------
 
-    int numberOfNodes, numberOfEdges, startNode;
+    int numberOfNodes, numberOfEdges, startNode, totalCost = 0, minimumSpanningTreeEdges = 0, fromOne = 1;
+    vector<int> parent(numberOfNodes);
+
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 0);
+    Graph G(numberOfNodes, numberOfEdges, 0, fromOne);
     G.BuildWeightedGraph(fin);
 
     startNode = 0;
-    G.MinimumSpanningTree(startNode, fout);
+    parent = G.MinimumSpanningTree(startNode, totalCost, minimumSpanningTreeEdges);
+
+    fout << totalCost << "\n" << minimumSpanningTreeEdges << "\n";
+
+    if (fromOne)
+        for (int i = 1; i < numberOfNodes; i++)
+            fout << parent[i] + 1 << " " << i + 1 << "\n";
+    else
+        for (int i = 1; i < numberOfNodes; i++)
+            fout << parent[i] << " " << i << "\n";
 
     ----------------------------APM----------------------------*/
 
@@ -259,7 +365,7 @@ int main()
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.Build(fin);
 
     vector<int> topologicalSort = G.TopologicalSort();
@@ -277,7 +383,7 @@ int main()
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.Build(fin);
 
     vector<vector<int>> stronglyConnectedComponents = G.StronglyConnectedComponents();
@@ -303,7 +409,7 @@ int main()
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 0);
+    Graph G(numberOfNodes, numberOfEdges, 0, 1);
     G.Build(fin);
 
     vector<vector<int>> biconnectedComponents = G.BiconnectedComponents(0);
@@ -329,10 +435,10 @@ int main()
     int numberOfNodes, numberOfEdges;
     fin >> numberOfNodes >> numberOfEdges;
 
-    Graph G(numberOfNodes, numberOfEdges, 0);
+    Graph G(numberOfNodes, numberOfEdges, 0, 1);
     G.Build(fin);
 
-    fout << G.numberOfConnectedComponents();
+    fout << G.NumberOfConnectedComponents();
 
     ----------------------------DFS----------------------------*/
 
@@ -341,7 +447,7 @@ int main()
     int numberOfNodes, numberOfEdges, startNode;
     fin >> numberOfNodes >> numberOfEdges >> startNode;
 
-    Graph G(numberOfNodes, numberOfEdges, 1);
+    Graph G(numberOfNodes, numberOfEdges, 1, 1);
     G.Build(fin);
 
     int distance[numberOfNodes];
@@ -359,16 +465,16 @@ int main()
     return 0;
 }
 
-Graph::Graph() : numberOfNodes(0), numberOfEdges(0), directed(0) { }
+Graph::Graph() : numberOfNodes(0), numberOfEdges(0), directed(0), fromOne(0) { }
 
-Graph::Graph(int _numberOfNodes, int _numberOfEdges, bool _directed) : numberOfNodes(_numberOfNodes), numberOfEdges(_numberOfEdges), directed(_directed)
+Graph::Graph(int _numberOfNodes, int _numberOfEdges, bool _directed, bool _fromOne) : numberOfNodes(_numberOfNodes), numberOfEdges(_numberOfEdges), directed(_directed), fromOne(_fromOne)
 {
     for (int i = 0; i < _numberOfNodes; i++)
         adjacencyList.push_back( {} );
         //adjacencyList.push_back(vector<int>());
 }
 
-Graph::Graph(int _numberOfNodes, bool _directed) : numberOfNodes(_numberOfNodes), numberOfEdges(INF), directed(_directed)
+Graph::Graph(int _numberOfNodes, bool _directed, bool _fromOne) : numberOfNodes(_numberOfNodes), numberOfEdges(INF), directed(_directed), fromOne(_fromOne)
 {
     for (int i = 0; i < _numberOfNodes; i++)
         adjacencyMatrixWeightedGraph.push_back( {} );
@@ -381,8 +487,12 @@ void Graph::Build(istream &fin)
     {
         int firstNode, secondNode;
         fin >> firstNode >> secondNode;
-        firstNode--;
-        secondNode--;
+
+        if (fromOne)
+        {
+            firstNode--;
+            secondNode--;
+        }
 
         adjacencyList[firstNode].push_back(secondNode);
         if (!directed)
@@ -410,6 +520,7 @@ void Graph::BuildFromVector(vector<vector<int>> edges)
         secondNode = edges[i][1];
 
         adjacencyList[firstNode].push_back(secondNode);
+
         if (!directed)
             adjacencyList[secondNode].push_back(firstNode);
 
@@ -422,8 +533,12 @@ void Graph::BuildWeightedGraph(istream &fin)
     {
         int firstNode, secondNode, weight;
         fin >> firstNode >> secondNode >> weight;
-        firstNode--;
-        secondNode--;
+
+        if (fromOne)
+        {
+            firstNode--;
+            secondNode--;
+        }
 
         adjacencyListWeightedGraph[firstNode].push_back(make_pair(secondNode, weight));
 
@@ -438,13 +553,37 @@ void Graph::BuildGraphWithEdgesNumber(istream &fin)
     {
         int firstNode, secondNode;
         fin >> firstNode >> secondNode;
-        firstNode--;
-        secondNode--;
+
+        if (fromOne)
+        {
+            firstNode--;
+            secondNode--;
+        }
 
         adjacencyListWithEdgesNumber[firstNode].push_back(make_pair(secondNode, i));
 
         if (!directed)
             adjacencyListWithEdgesNumber[secondNode].push_back(make_pair(firstNode, i));
+    }
+}
+
+void Graph::BuildTransposeWeightedGraph(istream &fin)
+{
+    for (int i = 0; i < numberOfEdges; i++)
+    {
+        int firstNode, secondNode, weight;
+        fin >> firstNode >> secondNode >> weight;
+
+        if (fromOne)
+        {
+            firstNode--;
+            secondNode--;
+        }
+
+        adjacencyListWeightedGraph[secondNode].push_back(make_pair(firstNode, weight));
+
+        if (!directed)
+            adjacencyListWeightedGraph[firstNode].push_back(make_pair(secondNode, weight));
     }
 }
 
@@ -456,6 +595,16 @@ int Graph::GetNumberOfNodes()
 int Graph::GetNumberOfEdges()
 {
     return numberOfEdges;
+}
+
+bool Graph::IsDirected()
+{
+    return directed;
+}
+
+bool Graph::IsFromOne()
+{
+    return fromOne;
 }
 
 void Graph::BFS(int startNode, int distance[])
@@ -477,6 +626,12 @@ void Graph::BFS(int startNode, int distance[])
     {
         int currentNode = queueBFS.front();
 
+///     SHOW BFS ORDER FROM START NODE:
+//        if (fromOne)
+//            cout << currentNode + 1 << " ";
+//        else
+//            cout << currentNode << " ";
+
         for (unsigned int i = 0; i < adjacencyList[currentNode].size(); i++)
         {
             int adjacentNode = adjacencyList[currentNode][i];
@@ -496,7 +651,13 @@ void Graph::DFS(int startNode, bool visited[])
 {
     visited[startNode] = 1;
 
-    for (unsigned int i = 0; i < adjacencyList[startNode].size(); i++) //parcurg vecinii nodului
+///     SHOW DFS ORDER FROM START NODE:
+//        if (fromOne)
+//            cout << startNode + 1 << " ";
+//        else
+//            cout << startNode << " ";
+
+    for (unsigned int i = 0; i < adjacencyList[startNode].size(); i++)
     {
         int nextNode = adjacencyList[startNode][i];
         if (!visited[nextNode])
@@ -524,7 +685,7 @@ int Graph::NumberOfConnectedComponents()
     return _numberOfConnectedComponents;
 }
 
-void Graph::_BiconnectedComponents(int node, int id, int ids[], int low[], stack<int> &stackBiconnectedComponents, bool visited[], vector<vector<int>> &biconnectedComponents)
+void Graph::functionBiconnectedComponents(int node, int id, int ids[], int low[], stack<int> &stackBiconnectedComponents, bool visited[], vector<vector<int>> &biconnectedComponents)
 {
     stackBiconnectedComponents.push(node);
     visited[node] = 1;
@@ -538,7 +699,7 @@ void Graph::_BiconnectedComponents(int node, int id, int ids[], int low[], stack
             low[node] = min(low[node], ids[adjacentNode]);
         else
         {
-            _BiconnectedComponents(adjacentNode, id, ids, low, stackBiconnectedComponents, visited, biconnectedComponents);
+            functionBiconnectedComponents(adjacentNode, id, ids, low, stackBiconnectedComponents, visited, biconnectedComponents);
 
             low[node] = min(low[node], low[adjacentNode]);
 
@@ -560,7 +721,7 @@ void Graph::_BiconnectedComponents(int node, int id, int ids[], int low[], stack
     }
 }
 
-void Graph::_StronglyConnectedComponents(int node, int &id, int ids[], int low[], stack<int> &stackStronglyConnectedComponents, bool onStack[], bool visited[], vector<vector<int>> &stronglyConnectedComponents)
+void Graph::functionStronglyConnectedComponents(int node, int &id, int ids[], int low[], stack<int> &stackStronglyConnectedComponents, bool onStack[], bool visited[], vector<vector<int>> &stronglyConnectedComponents)
 {
     stackStronglyConnectedComponents.push(node);
     onStack[node] = 1;
@@ -573,7 +734,7 @@ void Graph::_StronglyConnectedComponents(int node, int &id, int ids[], int low[]
 
         if (!visited[adjacentNode])
         {
-            _StronglyConnectedComponents(adjacentNode, id, ids, low, stackStronglyConnectedComponents, onStack, visited, stronglyConnectedComponents);
+            functionStronglyConnectedComponents(adjacentNode, id, ids, low, stackStronglyConnectedComponents, onStack, visited, stronglyConnectedComponents);
 
             low[node] = min(low[node], low[adjacentNode]);
         }
@@ -607,7 +768,7 @@ vector<vector<int>> Graph::BiconnectedComponents(int node)
     for (int i = 0; i < numberOfNodes; i++)
         visited[i] = 0;
 
-    _BiconnectedComponents(node, id, ids, low, stackBiconnectedComponents, visited, biconnectedComponents);
+    functionBiconnectedComponents(node, id, ids, low, stackBiconnectedComponents, visited, biconnectedComponents);
 
     return biconnectedComponents;
 }
@@ -627,20 +788,20 @@ vector<vector<int>> Graph::StronglyConnectedComponents()
 
     for (int i = 0; i < numberOfNodes; i++)
         if (!visited[i])
-            _StronglyConnectedComponents(i, id, ids, low, stackStronglyConnectedComponents, onStack, visited, stronglyConnectedComponents);
+            functionStronglyConnectedComponents(i, id, ids, low, stackStronglyConnectedComponents, onStack, visited, stronglyConnectedComponents);
 
     return stronglyConnectedComponents;
 }
 
-void Graph::_TopologicalSort(int startNode, bool visited[], vector<int> &topologicalSort)
+void Graph::functionTopologicalSort(int startNode, bool visited[], vector<int> &topologicalSort)
 {
     visited[startNode] = 1;
 
-    for (unsigned int i = 0; i < adjacencyList[startNode].size(); i++) //parcurg vecinii nodului
+    for (unsigned int i = 0; i < adjacencyList[startNode].size(); i++)
     {
         int nextNode = adjacencyList[startNode][i];
         if (!visited[nextNode])
-            _TopologicalSort(nextNode, visited, topologicalSort);
+            functionTopologicalSort(nextNode, visited, topologicalSort);
     }
     topologicalSort.push_back(startNode);
 }
@@ -656,7 +817,7 @@ vector<int> Graph::TopologicalSort()
 
     for(int i = 0; i < numberOfNodes; i++)
         if(!visited[i])
-            _TopologicalSort(i, visited, topologicalSort);
+            functionTopologicalSort(i, visited, topologicalSort);
 
     return topologicalSort;
 }
@@ -713,7 +874,7 @@ bool Graph::HavelHakimi(vector<int> &degrees)
     return HavelHakimi(degrees);
 }
 
-void Graph::_CriticalConnections(int node, bool visited[], int disc[], int low[], int parent[], vector<vector<int>> &criticalConnections)
+void Graph::functionCriticalConnections(int node, bool visited[], int disc[], int low[], int parent[], vector<vector<int>> &criticalConnections)
 {
     static int time = 0;
 
@@ -727,7 +888,7 @@ void Graph::_CriticalConnections(int node, bool visited[], int disc[], int low[]
         if (!visited[adjacentNode])
         {
             parent[adjacentNode] = node;
-            _CriticalConnections(adjacentNode, visited, disc, low, parent, criticalConnections);
+            functionCriticalConnections(adjacentNode, visited, disc, low, parent, criticalConnections);
 
             low[node] = min(low[node], low[adjacentNode]);
 
@@ -760,15 +921,14 @@ vector<vector<int>> Graph::CriticalConnections()
 
     for (int i = 0; i < numberOfNodes; i++)
         if (!visited[i])
-            _CriticalConnections(i, visited, disc, low, parent, criticalConnections);
+            functionCriticalConnections(i, visited, disc, low, parent, criticalConnections);
 
     return criticalConnections;
 }
 
-void Graph::MinimumSpanningTree(int startNode, ostream &fout)
+vector<int> Graph::MinimumSpanningTree(int startNode, int &totalCost, int &minimumSpanningTreeEdges)
 {
     priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> minHeap;
-    int totalCost = 0, minimumSpanningTreeEdges = 0;
     vector<int> key(numberOfNodes, INF);
     vector<int> parent(numberOfNodes, -1);
     vector<bool> inMST(numberOfNodes, 0);
@@ -807,13 +967,10 @@ void Graph::MinimumSpanningTree(int startNode, ostream &fout)
         }
     }
 
-    fout << totalCost << "\n" << minimumSpanningTreeEdges << "\n";
-
-    for (int i = 1; i < numberOfNodes; i++)
-        fout << parent[i] + 1 << " " << i + 1 << "\n";
+    return parent;
 }
 
-void Graph::Dijkstra(int startNode, ostream &fout)
+vector<int> Graph::Dijkstra(int startNode)
 {
     priority_queue<pair<int, int>, vector<pair<int, int>>, greater<pair<int, int>>> minHeap;
     vector<int> key(numberOfNodes, INF);
@@ -845,25 +1002,14 @@ void Graph::Dijkstra(int startNode, ostream &fout)
         }
     }
 
-    for (int i = 0; i < numberOfNodes; i++)
-    {
-        if (i != startNode)
-        {
-            if (key[i] == INF)
-            {
-                key[i] = 0;
-            }
-            fout << key[i] << " ";
-        }
-    }
+    return key;
 }
 
-void Graph::BellmanFord(int startNode, ostream &fout)
+vector<int> Graph::BellmanFord(int startNode, bool &negativeCycle)
 {
     vector<int> key(numberOfNodes, INF);
     queue<int> queueBF;
     long long int iterations = 0;
-    bool negativeCycle = 0;
 
     key[startNode] = 0;
     queueBF.push(startNode);
@@ -894,16 +1040,7 @@ void Graph::BellmanFord(int startNode, ostream &fout)
         iterations++;
     }
 
-    if (negativeCycle)
-        fout << "Ciclu negativ!";
-    else
-        for (int i = 0; i < numberOfNodes; i++)
-            if (i != startNode)
-            {
-                if (key[i] == INF)
-                    key[i] = 0;
-                fout << key[i] << " ";
-            }
+    return key;
 }
 
 int Graph::FindRoot(int node, int parent[])
@@ -1118,4 +1255,137 @@ vector<int> Graph::EulerianPath(int startNode)
     path.pop_back();
 
     return path;
+}
+
+int Graph::HamiltonianCycleCost()
+{
+    ///NOTE: Adjacency list (adjacencyListWeightedGraph) is for the Transpose Graph
+    //       In this way, we know every node throw which we can reach a node x
+    int minCost[1 << numberOfNodes][numberOfNodes], minimumCost = INF;
+
+    for (int i = 0; i < (1 << numberOfNodes); i++)
+        for (int j = 0; j < numberOfNodes ; j++)
+            minCost[i][j] = INF;
+
+    minCost[1][0] = 0;
+
+    //for each sequence (written in bits)
+    //                   e.g. sequence {2,3} is 01100
+    //                        node 2 is 00100 (1<<2)
+    for (int i = 0; i < (1 << numberOfNodes); i++)
+    {
+        //for each node we want to add in the hamiltonian path
+        for (int j = 0; j < numberOfNodes; j++)
+        {
+            //if the node j is in sequence i
+            if (i & (1 << j))
+            {
+                for (auto k : adjacencyListWeightedGraph[j])
+                {
+                    int adjacentNode = k.first;
+                    int weight = k.second;
+
+                    if (i & (1 << adjacentNode))
+                        minCost[i][j] = min(minCost[i][j], minCost[i ^ (1 << j)][adjacentNode] + weight);
+                }
+            }
+        }
+    }
+
+    for (auto i : adjacencyListWeightedGraph[0])
+    {
+        int adjacentNode = i.first;
+        int weight = i.second;
+        minimumCost = min(minimumCost, minCost[(1 << numberOfNodes) - 1][adjacentNode] + weight);
+    }
+
+    if (minimumCost == INF)
+        return -1;
+
+    return minimumCost;
+}
+
+bool Graph::MaximumBipartiteMatchingBFS(vector<vector<int>> &adjacencyListBipartiteGraph, vector<int> &left, vector<int> &right, vector<int> &distance)
+{
+    queue<int> queueMaximumMatching;
+
+    for (unsigned int i = 1; i < left.size(); i++)
+    {
+        if (!left[i])
+        {
+            distance[i] = 0;
+            queueMaximumMatching.push(i);
+        }
+        else
+        {
+            distance[i] = INF;
+        }
+    }
+
+    distance[0] = INF;
+
+    while(!queueMaximumMatching.empty())
+    {
+        int nodeLeft = queueMaximumMatching.front();
+        queueMaximumMatching.pop();
+
+        if (distance[nodeLeft] < distance[0])
+        {
+            for (auto nodeRight : adjacencyListBipartiteGraph[nodeLeft])
+            {
+                if (distance[right[nodeRight]] == INF)
+                {
+                    distance[right[nodeRight]] = distance[nodeLeft] + 1;
+                    queueMaximumMatching.push(right[nodeRight]);
+                }
+            }
+        }
+    }
+
+    if (distance[0] == INF)
+        return 0;
+
+    return 1;
+}
+
+bool Graph::MaximumBipartiteMatchingDFS(int startNodeLeft, vector<vector<int>> &adjacencyListBipartiteGraph, vector<int> &left, vector<int> &right, vector<int> &distance)
+{
+    if (!startNodeLeft)
+        return 1;
+
+    for (auto nodeRight : adjacencyListBipartiteGraph[startNodeLeft])
+    {
+        if (distance[right[nodeRight]] == distance[startNodeLeft] + 1)
+        {
+            if (MaximumBipartiteMatchingDFS(right[nodeRight], adjacencyListBipartiteGraph, left, right, distance))
+            {
+                right[nodeRight] = startNodeLeft;
+                left[startNodeLeft] = nodeRight;
+                return 1;
+            }
+        }
+    }
+
+    distance[startNodeLeft] = INF;
+
+    return 0;
+}
+
+vector<int> Graph::MaximumBipartiteMatching(int numberOfNodesLeft, int numberOfNodesRight, int numberOfEdges, vector<vector<int>> adjacencyListBipartiteGraph)
+{
+    vector<int> left(numberOfNodesLeft + 1, 0), right(numberOfNodesRight + 1, 0), distance(numberOfNodesLeft + 1, 0);
+    int maxNumberOfNodesMatched = 0;
+
+    while (MaximumBipartiteMatchingBFS(adjacencyListBipartiteGraph, left, right, distance))
+    {
+        for (int i = 1; i < numberOfNodesLeft + 1; i++)
+        {
+            if (!left[i] && MaximumBipartiteMatchingDFS(i, adjacencyListBipartiteGraph, left, right, distance))
+                maxNumberOfNodesMatched++;
+        }
+    }
+
+    left[0] = maxNumberOfNodesMatched;
+
+    return left;
 }
